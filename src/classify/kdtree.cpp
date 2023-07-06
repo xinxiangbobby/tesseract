@@ -33,7 +33,7 @@ namespace tesseract {
 /*-----------------------------------------------------------------------------
         Global Data Definitions and Declarations
 -----------------------------------------------------------------------------*/
-#define MINSEARCH -FLT_MAX
+#define MINSEARCH (-FLT_MAX)
 #define MAXSEARCH FLT_MAX
 
 // Helper function to find the next essential dimension in a cycle.
@@ -212,7 +212,7 @@ KDTREE *MakeKDTree(int16_t KeySize, const PARAM_DESC KeyDesc[]) {
  * @param Key    ptr to key by which data can be retrieved
  * @param Data    ptr to data to be stored in the tree
  */
-void KDStore(KDTREE *Tree, float *Key, void *Data) {
+void KDStore(KDTREE *Tree, float *Key, CLUSTER *Data) {
   auto PtrToNode = &(Tree->Root.Left);
   auto Node = *PtrToNode;
   auto Level = NextLevel(Tree, -1);
@@ -310,7 +310,7 @@ void KDNearestNeighborSearch(KDTREE *Tree, float Query[], int QuerySize, float M
 
 /*---------------------------------------------------------------------------*/
 /** Walk a given Tree with action. */
-void KDWalk(KDTREE *Tree, void_proc action, void *context) {
+void KDWalk(KDTREE *Tree, kdwalk_proc action, ClusteringContext *context) {
   if (Tree->Root.Left != nullptr) {
     Walk(Tree, action, context, Tree->Root.Left, NextLevel(Tree, -1));
   }
@@ -398,7 +398,7 @@ float DistanceSquared(int k, PARAM_DESC *dim, float p1[], float p2[]) {
 }
 
 float ComputeDistance(int k, PARAM_DESC *dim, float p1[], float p2[]) {
-  return sqrt(DistanceSquared(k, dim, p1, p2));
+  return std::sqrt(DistanceSquared(k, dim, p1, p2));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -463,7 +463,7 @@ bool KDTreeSearch::BoxIntersectsSearch(float *lower, float *upper) {
  * @param sub_tree  ptr to root of subtree to be walked
  * @param level  current level in the tree for this node
  */
-void Walk(KDTREE *tree, void_proc action, void *context, KDNODE *sub_tree, int32_t level) {
+void Walk(KDTREE *tree, kdwalk_proc action, ClusteringContext *context, KDNODE *sub_tree, int32_t level) {
   (*action)(context, sub_tree->Data, level);
   if (sub_tree->Left != nullptr) {
     Walk(tree, action, context, sub_tree->Left, NextLevel(tree, level));

@@ -115,7 +115,6 @@ void ShapeClassifier::DebugDisplay(const TrainingSample &sample, Image page_pix,
   std::vector<UnicharRating> results;
   // Debug classification until the user quits.
   const UNICHARSET &unicharset = GetUnicharset();
-  SVEvent *ev;
   SVEventType ev_type;
   do {
     std::vector<ScrollView *> windows;
@@ -135,7 +134,7 @@ void ShapeClassifier::DebugDisplay(const TrainingSample &sample, Image page_pix,
     UNICHAR_ID old_unichar_id;
     do {
       old_unichar_id = unichar_id;
-      ev = debug_win->AwaitEvent(SVET_ANY);
+      auto ev = debug_win->AwaitEvent(SVET_ANY);
       ev_type = ev->type;
       if (ev_type == SVET_POPUP) {
         if (unicharset.contains_unichar(ev->parameter)) {
@@ -144,7 +143,6 @@ void ShapeClassifier::DebugDisplay(const TrainingSample &sample, Image page_pix,
           tprintf("Char class '%s' not found in unicharset", ev->parameter);
         }
       }
-      delete ev;
     } while (unichar_id == old_unichar_id && ev_type != SVET_CLICK && ev_type != SVET_DESTROY);
     for (auto window : windows) {
       delete window;
@@ -176,7 +174,7 @@ void ShapeClassifier::UnicharPrintResults(const char *context,
             GetUnicharset().id_to_unichar(result.unichar_id));
     if (!result.fonts.empty()) {
       tprintf(" Font Vector:");
-      for (auto font : result.fonts) {
+      for (auto &&font : result.fonts) {
         tprintf(" %d", font.fontinfo_id);
       }
     }
@@ -204,13 +202,13 @@ void ShapeClassifier::FilterDuplicateUnichars(std::vector<ShapeRating> *results)
   std::vector<ShapeRating> filtered_results;
   // Copy results to filtered results and knock out duplicate unichars.
   const ShapeTable *shapes = GetShapeTable();
-  for (int r = 0; r < results->size(); ++r) {
+  for (unsigned r = 0; r < results->size(); ++r) {
     if (r > 0) {
       const Shape &shape_r = shapes->GetShape((*results)[r].shape_id);
       int c;
       for (c = 0; c < shape_r.size(); ++c) {
         int unichar_id = shape_r[c].unichar_id;
-        int s;
+        unsigned s;
         for (s = 0; s < r; ++s) {
           const Shape &shape_s = shapes->GetShape((*results)[s].shape_id);
           if (shape_s.ContainsUnichar(unichar_id)) {

@@ -8,10 +8,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Include automatically generated configuration file
+#ifdef HAVE_CONFIG_H
+#  include "config_auto.h"
+#endif
+
 #ifdef USE_OPENCL
 
 #  ifdef _WIN32
 #    include <io.h>
+#    include <windows.h>
 #  else
 #    include <sys/types.h>
 #    include <unistd.h>
@@ -47,10 +53,14 @@
 #  endif
 
 #  include <cstdio>
+#  include <cstdlib>
 #  include <cstring> // for memset, strcpy, ...
 #  include <vector>
 
 #  include "errcode.h" // for ASSERT_HOST
+#  include "image.h"   // for Image
+
+namespace tesseract {
 
 GPUEnv OpenclDevice::gpuEnv;
 
@@ -802,7 +812,8 @@ int OpenclDevice::BinaryGenerated(const char *clFileName, FILE **fhandle) {
   cl_int clStatus;
   int status = 0;
   FILE *fd = nullptr;
-  char fileName[256] = {0}, cl_name[128] = {0};
+  char fileName[256];
+  char cl_name[128];
   char deviceName[1024];
   clStatus = clGetDeviceInfo(gpuEnv.mpArryDevsID[i], CL_DEVICE_NAME, sizeof(deviceName), deviceName,
                              nullptr);
@@ -810,7 +821,7 @@ int OpenclDevice::BinaryGenerated(const char *clFileName, FILE **fhandle) {
   const char *str = strstr(clFileName, ".cl");
   memcpy(cl_name, clFileName, str - clFileName);
   cl_name[str - clFileName] = '\0';
-  sprintf(fileName, "%s-%s.bin", cl_name, deviceName);
+  snprintf(fileName, sizeof(fileName), "%s-%s.bin", cl_name, deviceName);
   legalizeFileName(fileName);
   fd = fopen(fileName, "rb");
   status = (fd != nullptr) ? 1 : 0;
@@ -884,9 +895,9 @@ int OpenclDevice::GeneratBinFromKernelSource(cl_program program, const char *clF
 
   /* dump out each binary into its own separate file. */
   for (i = 0; i < numDevices; i++) {
-    char fileName[256] = {0}, cl_name[128] = {0};
-
     if (binarySizes[i] != 0) {
+      char fileName[256];
+      char cl_name[128];
       char deviceName[1024];
       clStatus =
           clGetDeviceInfo(mpArryDevsID[i], CL_DEVICE_NAME, sizeof(deviceName), deviceName, nullptr);
@@ -895,7 +906,7 @@ int OpenclDevice::GeneratBinFromKernelSource(cl_program program, const char *clF
       const char *str = strstr(clFileName, ".cl");
       memcpy(cl_name, clFileName, str - clFileName);
       cl_name[str - clFileName] = '\0';
-      sprintf(fileName, "%s-%s.bin", cl_name, deviceName);
+      snprintf(fileName, sizeof(fileName), "%s-%s.bin", cl_name, deviceName);
       legalizeFileName(fileName);
       if (!WriteBinaryToFile(fileName, binaries[i], binarySizes[i])) {
         tprintf("[OD] write binary[%s] failed\n", fileName);
@@ -2193,7 +2204,7 @@ static double getLineMasksMorphMicroBench(GPUEnv *env, TessScoreEvaluationInputD
 #  endif
     OpenclDevice::gpuEnv = *env;
     OpenclDevice::initMorphCLAllocations(wpl, input.height, input.pix);
-    Image pix_vline = nullptr, *pix_hline = nullptr, *pix_closed = nullptr;
+    Image pix_vline = nullptr, pix_hline = nullptr, pix_closed = nullptr;
     OpenclDevice::pixGetLinesCL(nullptr, input.pix, &pix_vline, &pix_hline, &pix_closed, true,
                                 closing_brick, closing_brick, max_line_width, max_line_width,
                                 min_line_length, min_line_length);
@@ -2251,8 +2262,6 @@ static double getLineMasksMorphMicroBench(GPUEnv *env, TessScoreEvaluationInputD
 /******************************************************************************
  * Device Selection
  *****************************************************************************/
-
-#  include <cstdlib>
 
 // encode score object as byte string
 static ds_status serializeScore(ds_device *device, uint8_t **serializedScore,
@@ -2452,5 +2461,7 @@ bool OpenclDevice::selectedDeviceIsOpenCL() {
   ds_device device = getDeviceSelection();
   return (device.type == DS_DEVICE_OPENCL_DEVICE);
 }
+
+} // namespace
 
 #endif

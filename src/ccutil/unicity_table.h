@@ -62,6 +62,13 @@ public:
     return table_.at(id);
   }
 
+  T &operator[](size_t id) {
+    return table_[id];
+  }
+  const T &operator[](size_t id) const {
+    return table_[id];
+  }
+
   /// Return the id of the T object.
   /// This method NEEDS a compare_callback to be passed to
   /// set_compare_callback.
@@ -69,22 +76,11 @@ public:
     return table_.get_index(object);
   }
 
-  /// Return true if T is in the table
-  bool contains(T object) const {
-    return get_index(object) != -1;
-  }
-
-  /// Return true if the id is valid
-  T contains_id(int id) const  {
-    return table_.contains_index(id);
-  }
-
   /// Add an element in the table
   int push_back(T object)  {
     auto idx = get_index(object);
     if (idx == -1) {
-      table_.push_back(object);
-      idx = size();
+      idx = table_.push_back(object);
     }
     return idx;
   }

@@ -80,7 +80,7 @@ void SetBlobStrokeWidth(Image pix, BLOBNBOX *blob) {
   uint32_t *data = pixGetData(dist_pix);
   int wpl = pixGetWpl(dist_pix);
   // Horizontal width of stroke.
-  STATS h_stats(0, width + 1);
+  STATS h_stats(0, width);
   for (int y = 0; y < height; ++y) {
     uint32_t *pixels = data + y * wpl;
     int prev_pixel = 0;
@@ -104,7 +104,7 @@ void SetBlobStrokeWidth(Image pix, BLOBNBOX *blob) {
     }
   }
   // Vertical width of stroke.
-  STATS v_stats(0, height + 1);
+  STATS v_stats(0, height);
   for (int x = 0; x < width; ++x) {
     int prev_pixel = 0;
     int pixel = GET_DATA_BYTE(data, x);
@@ -300,7 +300,7 @@ float Textord::filter_noise_blobs(BLOBNBOX_LIST *src_list,     // original list
   BLOBNBOX_IT noise_it = noise_list;
   BLOBNBOX_IT small_it = small_list;
   BLOBNBOX_IT large_it = large_list;
-  STATS size_stats(0, MAX_NEAREST_DIST);
+  STATS size_stats(0, MAX_NEAREST_DIST - 1);
   // blob heights
   float min_y; // size limits
   float max_y;
@@ -325,7 +325,7 @@ float Textord::filter_noise_blobs(BLOBNBOX_LIST *src_list,     // original list
                (tesseract::CCStruct::kDescenderFraction + tesseract::CCStruct::kXHeightFraction +
                 2 * tesseract::CCStruct::kAscenderFraction) /
                tesseract::CCStruct::kXHeightFraction);
-  min_y = floor(initial_x / 2);
+  min_y = std::floor(initial_x / 2);
   max_x = ceil(initial_x * textord_width_limit);
   small_it.move_to_first();
   for (small_it.mark_cycle_pt(); !small_it.cycled_list(); small_it.forward()) {
@@ -729,7 +729,7 @@ void Textord::TransferDiacriticsToBlockGroups(BLOBNBOX_LIST *diacritic_blobs, BL
     int best_g = 0;
     float best_angle_diff = FLT_MAX;
     for (const auto &group : groups) {
-      double angle_diff = fabs(block_angle - group->angle);
+      double angle_diff = std::fabs(block_angle - group->angle);
       if (angle_diff > M_PI) {
         angle_diff = fabs(angle_diff - 2.0 * M_PI);
       }

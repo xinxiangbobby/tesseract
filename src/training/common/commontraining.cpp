@@ -376,6 +376,7 @@ void ReadTrainingSamples(const FEATURE_DEFS_STRUCT &feature_definitions, const c
       if (feature_type != i) {
         delete char_desc->FeatureSets[i];
       }
+      char_desc->FeatureSets[i] = nullptr;
     }
     delete char_desc;
   }
@@ -434,7 +435,6 @@ CLUSTERER *SetUpForClustering(const FEATURE_DEFS_STRUCT &FeatureDefs, LABELEDLIS
                               const char *program_feature_type) {
   uint16_t N;
   CLUSTERER *Clusterer;
-  int32_t CharID;
   LIST FeatureList = nullptr;
   FEATURE_SET FeatureSet = nullptr;
 
@@ -443,7 +443,7 @@ CLUSTERER *SetUpForClustering(const FEATURE_DEFS_STRUCT &FeatureDefs, LABELEDLIS
   Clusterer = MakeClusterer(N, FeatureDefs.FeatureDesc[desc_index]->ParamDesc);
 
   FeatureList = char_sample->List;
-  CharID = 0;
+  uint32_t CharID = 0;
   std::vector<float> Sample;
   iterate(FeatureList) {
     FeatureSet = reinterpret_cast<FEATURE_SET>(FeatureList->first_node());
@@ -491,8 +491,10 @@ void MergeInsignificantProtos(LIST ProtoList, const char *label, CLUSTERER *Clus
     }
     if (best_match != nullptr && !best_match->Significant) {
       if (debug) {
-        tprintf("Merging red clusters (%d+%d) at %g,%g and %g,%g\n", best_match->NumSamples,
-                Prototype->NumSamples, best_match->Mean[0], best_match->Mean[1], Prototype->Mean[0],
+        auto bestMatchNumSamples = best_match->NumSamples;
+        auto prototypeNumSamples = Prototype->NumSamples;
+        tprintf("Merging red clusters (%d+%d) at %g,%g and %g,%g\n", bestMatchNumSamples,
+                prototypeNumSamples, best_match->Mean[0], best_match->Mean[1], Prototype->Mean[0],
                 Prototype->Mean[1]);
       }
       best_match->NumSamples =

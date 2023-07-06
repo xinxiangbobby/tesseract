@@ -82,7 +82,7 @@ void BoxChar::ReverseUnicodesInBox() {
 /* static */
 void BoxChar::TranslateBoxes(int xshift, int yshift, std::vector<BoxChar *> *boxes) {
   for (auto &boxe : *boxes) {
-    BOX *box = boxe->box_;
+    Box *box = boxe->box_;
     if (box != nullptr) {
       box->x += xshift;
       box->y += yshift;
@@ -278,8 +278,8 @@ bool BoxChar::MostlyVertical(const std::vector<BoxChar *> &boxes) {
       int dx = boxes[i]->box_->x - boxes[i - 1]->box_->x;
       int dy = boxes[i]->box_->y - boxes[i - 1]->box_->y;
       if (abs(dx) > abs(dy) * kMinNewlineRatio || abs(dy) > abs(dx) * kMinNewlineRatio) {
-        total_dx += dx * dx;
-        total_dy += dy * dy;
+        total_dx += static_cast<int64_t>(dx) * dx;
+        total_dy += static_cast<int64_t>(dy) * dy;
       }
     }
   }
@@ -303,7 +303,7 @@ void BoxChar::RotateBoxes(float rotation, int xcenter, int ycenter, int start_bo
                           std::vector<BoxChar *> *boxes) {
   Boxa *orig = boxaCreate(0);
   for (int i = start_box; i < end_box; ++i) {
-    BOX *box = (*boxes)[i]->box_;
+    Box *box = (*boxes)[i]->box_;
     if (box) {
       boxaAddBox(orig, box, L_CLONE);
     }

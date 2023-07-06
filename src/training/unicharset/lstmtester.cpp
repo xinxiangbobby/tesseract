@@ -16,6 +16,7 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include "lstmtester.h"
+#include <iomanip>  // for std::setprecision
 #include <thread>   // for std::thread
 #include "fileio.h" // for LoadFileLinesToStrings
 
@@ -106,7 +107,7 @@ std::string LSTMTester::RunEvalSync(int iteration, const double *training_errors
         std::string ocr_text = trainer.DecodeLabels(ocr_labels);
         tprintf("OCR  :%s\n", ocr_text.c_str());
         if (verbosity > 2 || (verbosity > 1 && result != PERFECT)) {
-          tprintf("Line Char error rate=%f, Word error rate=%f\n\n",
+          tprintf("Line BCER=%f, BWER=%f\n\n",
                   trainer.NewSingleError(tesseract::ET_CHAR_ERROR),
                   trainer.NewSingleError(tesseract::ET_WORD_RECERR));
         }
@@ -115,12 +116,15 @@ std::string LSTMTester::RunEvalSync(int iteration, const double *training_errors
   }
   char_error *= 100.0 / total_pages_;
   word_error *= 100.0 / total_pages_;
-  std::string result;
-  result += "At iteration " + std::to_string(iteration);
-  result += ", stage " + std::to_string(training_stage);
-  result += ", Eval Char error rate=" + std::to_string(char_error);
-  result += ", Word error rate=" + std::to_string(word_error);
-  return result;
+  std::stringstream result;
+  result.imbue(std::locale::classic());
+  result << std::fixed << std::setprecision(3);
+  if (iteration != 0 || training_stage != 0) {
+    result << "At iteration " << iteration
+           << ", stage " << training_stage << ", ";
+  }
+  result << "BCER eval=" << char_error << ", BWER eval=" << word_error;
+  return result.str();
 }
 
 // Helper thread function for RunEvalAsync.

@@ -163,8 +163,8 @@ void fix_row_pitch(TO_ROW *bad_row,        // row to fix
   block_votes = like_votes = other_votes = 0;
   maxwidth = static_cast<int32_t>(ceil(bad_row->xheight * textord_words_maxspace));
   if (bad_row->pitch_decision != PITCH_DEF_FIXED && bad_row->pitch_decision != PITCH_DEF_PROP) {
-    block_stats.set_range(0, maxwidth);
-    like_stats.set_range(0, maxwidth);
+    block_stats.set_range(0, maxwidth - 1);
+    like_stats.set_range(0, maxwidth - 1);
     block_index = 1;
     for (block_it.mark_cycle_pt(); !block_it.cycled_list(); block_it.forward()) {
       block = block_it.data();
@@ -392,15 +392,14 @@ bool try_doc_fixed(             // determine pitch
   float final_pitch;  // output pitch
   float row_y;        // baseline
   STATS projection;   // entire page
-  STATS pitches(0, MAX_ALLOWED_PITCH);
+  STATS pitches(0, MAX_ALLOWED_PITCH - 1);
   // for median
   float sp_sd;      // space sd
   int16_t mid_cuts; // no of cheap cuts
   float pitch_sd;   // sync rating
 
-  if (block_it.empty()
-      //      || block_it.data()==block_it.data_relative(1)
-      || !textord_blockndoc_fixed) {
+  if (!textord_blockndoc_fixed ||
+      block_it.empty() || block_it.data()->get_rows()->empty()) {
     return false;
   }
   shift_factor = gradient / (gradient * gradient + 1);
@@ -438,7 +437,7 @@ bool try_doc_fixed(             // determine pitch
   if (pitches.get_total() == 0) {
     return false;
   }
-  projection.set_range(projection_left, projection_right);
+  projection.set_range(projection_left, projection_right - 1);
 
   for (block_it.mark_cycle_pt(); !block_it.cycled_list(); block_it.forward()) {
     block = block_it.data();
@@ -663,7 +662,7 @@ bool row_pitch_stats( // find line stats
   float gaps[BLOCK_STATS_CLUSTERS];
   // blobs
   BLOBNBOX_IT blob_it = row->blob_list();
-  STATS gap_stats(0, maxwidth);
+  STATS gap_stats(0, maxwidth - 1);
   STATS cluster_stats[BLOCK_STATS_CLUSTERS + 1];
   // clusters
 
@@ -801,9 +800,9 @@ bool find_row_pitch(     // find lines
   float dm_pitch;      // pitch with dm on
   float pitch;         // revised estimate
   float initial_pitch; // guess at pitch
-  STATS gap_stats(0, maxwidth);
+  STATS gap_stats(0, maxwidth - 1);
   // centre-centre
-  STATS pitch_stats(0, maxwidth);
+  STATS pitch_stats(0, maxwidth - 1);
 
   row->fixed_pitch = 0.0f;
   initial_pitch = row->fp_space;
@@ -1105,7 +1104,7 @@ float tune_row_pitch(           // find fp cells
     float &best_sp_sd,          // space sd
     int16_t &best_mid_cuts,     // no of cheap cuts
     ICOORDELT_LIST *best_cells, // row cells
-    bool testing_on             // inidividual words
+    bool testing_on             // individual words
 ) {
   int pitch_delta;           // offset pitch
   int16_t mid_cuts;          // cheap cuts
@@ -1204,7 +1203,7 @@ float tune_row_pitch2(          // find fp cells
     float &best_sp_sd,          // space sd
     int16_t &best_mid_cuts,     // no of cheap cuts
     ICOORDELT_LIST *best_cells, // row cells
-    bool testing_on             // inidividual words
+    bool testing_on             // individual words
 ) {
   int pitch_delta;    // offset pitch
   int16_t pixel;      // pixel coord
@@ -1225,7 +1224,7 @@ float tune_row_pitch2(          // find fp cells
   std::unique_ptr<STATS[]> sum_proj(new STATS[textord_pitch_range * 2 + 1]); // summed projection
 
   for (pitch_delta = -textord_pitch_range; pitch_delta <= textord_pitch_range; pitch_delta++) {
-    sum_proj[textord_pitch_range + pitch_delta].set_range(0, best_pitch + pitch_delta + 1);
+    sum_proj[textord_pitch_range + pitch_delta].set_range(0, best_pitch + pitch_delta);
   }
   for (pixel = projection_left; pixel <= projection_right; pixel++) {
     for (pitch_delta = -textord_pitch_range; pitch_delta <= textord_pitch_range; pitch_delta++) {
@@ -1297,7 +1296,7 @@ float compute_pitch_sd(        // find fp cells
     float &sp_sd,              // space sd
     int16_t &mid_cuts,         // no of free cuts
     ICOORDELT_LIST *row_cells, // list of chop pts
-    bool testing_on,           // inidividual words
+    bool testing_on,           // individual words
     int16_t start,             // start of good range
     int16_t end                // end of good range
 ) {
@@ -1453,7 +1452,7 @@ float compute_pitch_sd2(       // find fp cells
     int16_t &occupation,       // no of occupied cells
     int16_t &mid_cuts,         // no of free cuts
     ICOORDELT_LIST *row_cells, // list of chop pts
-    bool testing_on,           // inidividual words
+    bool testing_on,           // individual words
     int16_t start,             // start of good range
     int16_t end                // end of good range
 ) {

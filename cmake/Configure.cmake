@@ -96,13 +96,20 @@ set(include_files_list
     pango-1.0/pango/pango-features.h
     unicode/uchar.h
 )
-check_includes(include_files_list)
+# check_includes(include_files_list)
 
 set(types_list
     "long long int"
     wchar_t
 )
-check_types(types_list)
+# check_types(types_list)
+
+list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
+list(APPEND CMAKE_REQUIRED_LIBRARIES -lm)
+set(functions_list
+    feenableexcept
+)
+check_functions(functions_list)
 
 file(APPEND ${AUTOCONFIG_SRC} "
 /* Version number */
@@ -111,8 +118,10 @@ file(APPEND ${AUTOCONFIG_SRC} "
 #cmakedefine FAST_FLOAT ${FAST_FLOAT}
 #cmakedefine DISABLED_LEGACY_ENGINE ${DISABLED_LEGACY_ENGINE}
 #cmakedefine HAVE_TIFFIO_H ${HAVE_TIFFIO_H}
+#cmakedefine HAVE_NEON ${HAVE_NEON}
 #cmakedefine HAVE_LIBARCHIVE ${HAVE_LIBARCHIVE}
 #cmakedefine HAVE_LIBCURL ${HAVE_LIBCURL}
+#cmakedefine USE_OPENCL ${USE_OPENCL}
 ")
 
 if(TESSDATA_PREFIX)

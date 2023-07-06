@@ -5,8 +5,6 @@ ACLOCAL_AMFLAGS = -I m4
 
 CLEANFILES =
 
-DEFAULT_INCLUDES =
-
 SUBDIRS = . tessdata
 
 EXTRA_DIST = README.md LICENSE
@@ -18,6 +16,8 @@ endif
 EXTRA_DIST += CMakeLists.txt tesseract.pc.cmake cmake VERSION
 
 DIST_SUBDIRS = $(SUBDIRS)
+
+EXTRA_PROGRAMS =
 
 uninstall-hook:
 	rm -rf $(DESTDIR)$(pkgincludedir)
@@ -109,7 +109,7 @@ libtesseract_la_LDFLAGS += $(libarchive_LIBS)
 libtesseract_la_LDFLAGS += $(libcurl_LIBS)
 libtesseract_la_LDFLAGS += $(TENSORFLOW_LIBS)
 if T_WIN
-libtesseract_la_LDFLAGS += -no-undefined -Wl,--as-needed -lws2_32
+libtesseract_la_LDFLAGS += -no-undefined -lws2_32
 else
 libtesseract_la_LDFLAGS += $(NOUNDEFINED)
 endif
@@ -143,9 +143,6 @@ libtesseract_native_la_CXXFLAGS = -O3 -ffast-math
 if OPENMP_SIMD
 libtesseract_native_la_CXXFLAGS += -fopenmp-simd -DOPENMP_SIMD
 endif
-if MARCH_NATIVE_OPT
-libtesseract_native_la_CXXFLAGS += -march=native -mtune=native
-endif
 libtesseract_native_la_CXXFLAGS += -I$(top_srcdir)/src/ccutil
 libtesseract_native_la_SOURCES = src/arch/dotproduct.cpp
 
@@ -163,6 +160,14 @@ libtesseract_avx2_la_CXXFLAGS += -I$(top_srcdir)/src/ccutil
 libtesseract_avx2_la_SOURCES = src/arch/intsimdmatrixavx2.cpp
 libtesseract_la_LIBADD += libtesseract_avx2.la
 noinst_LTLIBRARIES += libtesseract_avx2.la
+endif
+
+if HAVE_AVX512F
+libtesseract_avx512_la_CXXFLAGS = -mavx512f
+libtesseract_avx512_la_CXXFLAGS += -I$(top_srcdir)/src/ccutil
+libtesseract_avx512_la_SOURCES = src/arch/dotproductavx512.cpp
+libtesseract_la_LIBADD += libtesseract_avx512.la
+noinst_LTLIBRARIES += libtesseract_avx512.la
 endif
 
 if HAVE_FMA
@@ -384,7 +389,6 @@ libtesseract_ccutil_la_SOURCES += src/ccutil/clst.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/elst2.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/elst.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/errcode.cpp
-libtesseract_ccutil_la_SOURCES += src/ccutil/mainblk.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/serialis.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/scanutils.cpp
 libtesseract_ccutil_la_SOURCES += src/ccutil/tessdatamanager.cpp
@@ -671,9 +675,16 @@ noinst_HEADERS += src/viewer/svutil.h
 libtesseract_la_SOURCES += src/viewer/scrollview.cpp
 libtesseract_la_SOURCES += src/viewer/svmnode.cpp
 libtesseract_la_SOURCES += src/viewer/svutil.cpp
-endif
 
-# TODO: Add rule to generate svpaint from svpaint.cpp.
+EXTRA_PROGRAMS += svpaint
+svpaint_CPPFLAGS =
+svpaint_CPPFLAGS += -I$(top_builddir)/include
+svpaint_CPPFLAGS += -I$(top_srcdir)/include
+svpaint_CPPFLAGS += -I$(top_srcdir)/src/ccstruct
+svpaint_CPPFLAGS += -I$(top_srcdir)/src/viewer
+svpaint_SOURCES = src/svpaint.cpp
+svpaint_LDADD = libtesseract.la
+endif
 
 # Rules for src/wordrec.
 
@@ -720,13 +731,21 @@ endif
 # Rules for tesseract executable.
 
 bin_PROGRAMS = tesseract
-tesseract_SOURCES = src/api/tesseractmain.cpp
+tesseract_SOURCES = src/tesseract.cpp
 tesseract_CPPFLAGS =
 tesseract_CPPFLAGS += -I$(top_srcdir)/src/arch
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/ccmain
 tesseract_CPPFLAGS += -I$(top_srcdir)/src/ccstruct
 tesseract_CPPFLAGS += -I$(top_srcdir)/src/ccutil
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/classify
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/cutil
 tesseract_CPPFLAGS += -I$(top_srcdir)/src/dict
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/textord
 tesseract_CPPFLAGS += -I$(top_srcdir)/src/viewer
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/wordrec
+if OPENCL
+tesseract_CPPFLAGS += -I$(top_srcdir)/src/opencl
+endif
 tesseract_CPPFLAGS += $(AM_CPPFLAGS)
 if VISIBILITY
 tesseract_CPPFLAGS += -DTESS_IMPORTS
@@ -753,12 +772,12 @@ endif
 
 if ENABLE_TRAINING
 
-training: $(EXTRA_PROGRAMS) | $(PROGRAMS)
+training: $(trainingtools) | $(PROGRAMS)
 
-training-install: $(EXTRA_PROGRAMS)
+training-install: $(trainingtools)
 	mkdir -p $(DESTDIR)$(bindir)
 	$(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install \
-	$(INSTALL) $(INSTALL_STRIP_FLAG) $(EXTRA_PROGRAMS) $(DESTDIR)$(bindir)
+	$(INSTALL) $(INSTALL_STRIP_FLAG) $(trainingtools) $(DESTDIR)$(bindir)
 
 training-uninstall:
 
@@ -768,14 +787,14 @@ check: libtesseract_training.la
 # dawg_test runs dawg2wordlist and wordlist2dawg.
 check: dawg2wordlist wordlist2dawg
 
-CLEANFILES += $(EXTRA_PROGRAMS)
-
 else
 
 training:
 	@echo "Need to reconfigure project, so there are no errors"
 
 endif
+
+CLEANFILES += $(EXTRA_PROGRAMS)
 
 training_CPPFLAGS := -DPANGO_ENABLE_ENGINE
 training_CPPFLAGS += -DTESS_COMMON_TRAINING_API=
@@ -807,7 +826,7 @@ if DISABLED_LEGACY_ENGINE
 training_CPPFLAGS += -DDISABLED_LEGACY_ENGINE
 endif
 
-# TODO: training programs can not be linked to shared library created
+# TODO: training programs cannot be linked to shared library created
 # with -fvisibility
 if VISIBILITY
 AM_LDFLAGS += -all-static
@@ -883,27 +902,27 @@ libtesseract_training_la_SOURCES += src/training/common/sampleiterator.cpp
 libtesseract_training_la_SOURCES += src/training/common/trainingsampleset.cpp
 endif
 
-trainingtools = combine_lang_model
-trainingtools += combine_tessdata
-trainingtools += dawg2wordlist
-trainingtools += lstmeval
-trainingtools += lstmtraining
-trainingtools += merge_unicharsets
-trainingtools += set_unicharset_properties
-trainingtools += text2image
-trainingtools += unicharset_extractor
-trainingtools += wordlist2dawg
+trainingtools = combine_lang_model$(EXEEXT)
+trainingtools += combine_tessdata$(EXEEXT)
+trainingtools += dawg2wordlist$(EXEEXT)
+trainingtools += lstmeval$(EXEEXT)
+trainingtools += lstmtraining$(EXEEXT)
+trainingtools += merge_unicharsets$(EXEEXT)
+trainingtools += set_unicharset_properties$(EXEEXT)
+trainingtools += text2image$(EXEEXT)
+trainingtools += unicharset_extractor$(EXEEXT)
+trainingtools += wordlist2dawg$(EXEEXT)
 if !DISABLED_LEGACY_ENGINE
-trainingtools += ambiguous_words
-trainingtools += classifier_tester
-trainingtools += cntraining
-trainingtools += mftraining
-trainingtools += shapeclustering
+trainingtools += ambiguous_words$(EXEEXT)
+trainingtools += classifier_tester$(EXEEXT)
+trainingtools += cntraining$(EXEEXT)
+trainingtools += mftraining$(EXEEXT)
+trainingtools += shapeclustering$(EXEEXT)
 endif
 
 $(trainingtools): libtesseract.la
 
-EXTRA_PROGRAMS = $(trainingtools)
+EXTRA_PROGRAMS += $(trainingtools)
 
 extralib = libtesseract.la
 extralib += $(libarchive_LIBS)
@@ -1159,20 +1178,22 @@ endif # TENSORFLOW
 
 # Build googletest:
 check_LTLIBRARIES = libgtest.la libgtest_main.la libgmock.la libgmock_main.la
-libgtest_la_SOURCES = googletest/googletest/src/gtest-all.cc
-libgtest_la_CPPFLAGS = -I$(top_srcdir)/googletest/googletest/include -I$(top_srcdir)/googletest/googletest -pthread
-libgtest_main_la_SOURCES = googletest/googletest/src/gtest_main.cc
+libgtest_la_SOURCES = unittest/third_party/googletest/googletest/src/gtest-all.cc
+libgtest_la_CPPFLAGS = -I$(top_srcdir)/unittest/third_party/googletest/googletest/include
+libgtest_la_CPPFLAGS += -I$(top_srcdir)/unittest/third_party/googletest/googletest
+libgtest_la_CPPFLAGS += -pthread
+libgtest_main_la_SOURCES = unittest/third_party/googletest/googletest/src/gtest_main.cc
 libgtest_main_la_CPPFLAGS = $(libgtest_la_CPPFLAGS)
 
-GMOCK_INCLUDES = -I$(top_srcdir)/googletest/googlemock/include \
-                 -I$(top_srcdir)/googletest/googlemock \
-                 -I$(top_srcdir)/googletest/googletest/include \
-                 -I$(top_srcdir)/googletest/googletest
+GMOCK_INCLUDES = -I$(top_srcdir)/unittest/third_party/googletest/googlemock/include \
+                 -I$(top_srcdir)/unittest/third_party/googletest/googlemock \
+                 -I$(top_srcdir)/unittest/third_party/googletest/googletest/include \
+                 -I$(top_srcdir)/unittest/third_party/googletest/googletest
 
-libgmock_la_SOURCES = googletest/googlemock/src/gmock-all.cc
+libgmock_la_SOURCES = unittest/third_party/googletest/googlemock/src/gmock-all.cc
 libgmock_la_CPPFLAGS = $(GMOCK_INCLUDES) \
                        -pthread
-libgmock_main_la_SOURCES = googletest/googlemock/src/gmock_main.cc
+libgmock_main_la_SOURCES = unittest/third_party/googletest/googlemock/src/gmock_main.cc
 libgmock_main_la_CPPFLAGS = $(GMOCK_INCLUDES) \
                             -pthread
 
@@ -1184,8 +1205,8 @@ TESS_LIBS += libtesseract.la $(libarchive_LIBS)
 TESS_LIBS += $(TENSORFLOW_LIBS)
 TRAINING_LIBS = libtesseract_training.la
 TRAINING_LIBS += $(TESS_LIBS)
-unittest_CPPFLAGS += -isystem $(top_srcdir)/googletest/googletest/include
-unittest_CPPFLAGS += -isystem $(top_srcdir)/googletest/googlemock/include
+unittest_CPPFLAGS += -isystem $(top_srcdir)/unittest/third_party/googletest/googletest/include
+unittest_CPPFLAGS += -isystem $(top_srcdir)/unittest/third_party/googletest/googlemock/include
 
 check_PROGRAMS = apiexample_test
 if ENABLE_TRAINING

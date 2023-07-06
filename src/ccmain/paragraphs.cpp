@@ -73,7 +73,7 @@ static int Epsilon(int space_pix) {
 static bool AcceptableRowArgs(int debug_level, int min_num_rows, const char *function_name,
                               const std::vector<RowScratchRegisters> *rows, int row_start,
                               int row_end) {
-  if (row_start < 0 || row_end > rows->size() || row_start > row_end) {
+  if (row_start < 0 || static_cast<size_t>(row_end) > rows->size() || row_start > row_end) {
     tprintf("Invalid arguments rows[%d, %d) while rows is of size %zu.\n", row_start, row_end,
             rows->size());
     return false;
@@ -94,8 +94,8 @@ static bool AcceptableRowArgs(int debug_level, int min_num_rows, const char *fun
 static void PrintTable(const std::vector<std::vector<std::string>> &rows, const char *colsep) {
   std::vector<int> max_col_widths;
   for (const auto &row : rows) {
-    int num_columns = row.size();
-    for (int c = 0; c < num_columns; c++) {
+    auto num_columns = row.size();
+    for (size_t c = 0; c < num_columns; c++) {
       int num_unicodes = 0;
       for (char i : row[c]) {
         if ((i & 0xC0) != 0x80) {
@@ -113,6 +113,7 @@ static void PrintTable(const std::vector<std::vector<std::string>> &rows, const 
   }
 
   std::vector<std::string> col_width_patterns;
+  col_width_patterns.reserve(max_col_widths.size());
   for (int max_col_width : max_col_widths) {
     col_width_patterns.push_back(std::string("%-") + std::to_string(max_col_width) + "s");
   }
@@ -285,7 +286,7 @@ bool AsciiLikelyListItem(const std::string &word) {
 // ========== Brain Dead Language Model (Tesseract Version) ================
 
 // Return the first Unicode Codepoint from werd[pos].
-int UnicodeFor(const UNICHARSET *u, const WERD_CHOICE *werd, int pos) {
+static int UnicodeFor(const UNICHARSET *u, const WERD_CHOICE *werd, unsigned pos) {
   if (!u || !werd || pos > werd->length()) {
     return 0;
   }
@@ -297,33 +298,32 @@ int UnicodeFor(const UNICHARSET *u, const WERD_CHOICE *werd, int pos) {
 class UnicodeSpanSkipper {
 public:
   UnicodeSpanSkipper(const UNICHARSET *unicharset, const WERD_CHOICE *word)
-      : u_(unicharset), word_(word) {
-    wordlen_ = word->length();
+      : u_(unicharset), word_(word), wordlen_(word->length()) {
   }
 
   // Given an input position, return the first position >= pos not punc.
-  int SkipPunc(int pos);
+  unsigned SkipPunc(unsigned pos);
   // Given an input position, return the first position >= pos not digit.
-  int SkipDigits(int pos);
+  unsigned SkipDigits(unsigned pos);
   // Given an input position, return the first position >= pos not roman.
-  int SkipRomans(int pos);
+  unsigned SkipRomans(unsigned pos);
   // Given an input position, return the first position >= pos not alpha.
-  int SkipAlpha(int pos);
+  unsigned SkipAlpha(unsigned pos);
 
 private:
   const UNICHARSET *u_;
   const WERD_CHOICE *word_;
-  int wordlen_;
+  unsigned wordlen_;
 };
 
-int UnicodeSpanSkipper::SkipPunc(int pos) {
+unsigned UnicodeSpanSkipper::SkipPunc(unsigned pos) {
   while (pos < wordlen_ && u_->get_ispunctuation(word_->unichar_id(pos))) {
     pos++;
   }
   return pos;
 }
 
-int UnicodeSpanSkipper::SkipDigits(int pos) {
+unsigned UnicodeSpanSkipper::SkipDigits(unsigned pos) {
   while (pos < wordlen_ &&
          (u_->get_isdigit(word_->unichar_id(pos)) || IsDigitLike(UnicodeFor(u_, word_, pos)))) {
     pos++;
@@ -331,7 +331,7 @@ int UnicodeSpanSkipper::SkipDigits(int pos) {
   return pos;
 }
 
-int UnicodeSpanSkipper::SkipRomans(int pos) {
+unsigned UnicodeSpanSkipper::SkipRomans(unsigned pos) {
   const char *kRomans = "ivxlmdIVXLMD";
   while (pos < wordlen_) {
     int ch = UnicodeFor(u_, word_, pos);
@@ -343,7 +343,7 @@ int UnicodeSpanSkipper::SkipRomans(int pos) {
   return pos;
 }
 
-int UnicodeSpanSkipper::SkipAlpha(int pos) {
+unsigned UnicodeSpanSkipper::SkipAlpha(unsigned pos) {
   while (pos < wordlen_ && u_->get_isalpha(word_->unichar_id(pos))) {
     pos++;
   }
@@ -386,13 +386,13 @@ static bool UniLikelyListItem(const UNICHARSET *u, const WERD_CHOICE *werd) {
 
   UnicodeSpanSkipper m(u, werd);
   int num_segments = 0;
-  int pos = 0;
+  unsigned pos = 0;
   while (pos < werd->length() && num_segments < 3) {
-    int numeral_start = m.SkipPunc(pos);
+    auto numeral_start = m.SkipPunc(pos);
     if (numeral_start > pos + 1) {
       break;
     }
-    int numeral_end = m.SkipRomans(numeral_start);
+    auto numeral_end = m.SkipRomans(numeral_start);
     if (numeral_end == numeral_start) {
       numeral_end = m.SkipDigits(numeral_start);
       if (numeral_end == numeral_start) {
@@ -514,8 +514,12 @@ void RowScratchRegisters::AppendDebugHeaderFields(std::vector<std::string> &head
 
 void RowScratchRegisters::AppendDebugInfo(const ParagraphTheory &theory,
                                           std::vector<std::string> &dbg) const {
-  char s[30];
-  snprintf(s, sizeof(s), "[%3d,%3d;%3d,%3d]", lmargin_, lindent_, rindent_, rmargin_);
+  char s[60];
+  // The largest (positive and negative) numbers are reported for lindent & rindent.
+  // While the column header has widths 5,4,4,5, it is therefore opportune to slightly
+  // offset the widths in the format string here to allow ample space for lindent & rindent
+  // while keeping the final table output nicely readable: 4,5,5,4.
+  snprintf(s, sizeof(s), "[%4d,%5d;%5d,%4d]", lmargin_, lindent_, rindent_, rmargin_);
   dbg.emplace_back(s);
   std::string model_string;
   model_string += static_cast<char>(GetLineType());
@@ -1623,8 +1627,8 @@ void RecomputeMarginsAndClearHypotheses(std::vector<RowScratchRegisters> *rows, 
     UpdateRange(sr.lmargin_ + sr.lindent_, &lmin, &lmax);
     UpdateRange(sr.rmargin_ + sr.rindent_, &rmin, &rmax);
   }
-  STATS lefts(lmin, lmax + 1);
-  STATS rights(rmin, rmax + 1);
+  STATS lefts(lmin, lmax);
+  STATS rights(rmin, rmax);
   for (int i = start; i < end; i++) {
     RowScratchRegisters &sr = (*rows)[i];
     if (sr.ri_->num_words == 0) {
@@ -1655,7 +1659,7 @@ int InterwordSpace(const std::vector<RowScratchRegisters> &rows, int row_start, 
       (rows[row_start].ri_->lword_box.height() + rows[row_end - 1].ri_->lword_box.height()) / 2;
   int word_width =
       (rows[row_start].ri_->lword_box.width() + rows[row_end - 1].ri_->lword_box.width()) / 2;
-  STATS spacing_widths(0, 5 + word_width);
+  STATS spacing_widths(0, 4 + word_width);
   for (int i = row_start; i < row_end; i++) {
     if (rows[i].ri_->num_words > 1) {
       spacing_widths.add(rows[i].ri_->average_interword_space, 1);
@@ -2353,7 +2357,7 @@ void DetectParagraphs(int debug_level, std::vector<RowInfo> *row_infos,
     LeftoverSegments(rows, &leftovers2, leftover.begin, leftover.end);
     bool pass2a_was_useful =
         leftovers2.size() > 1 ||
-        (leftovers2.size() == 1 && (leftovers2[0].begin != 0 || leftovers2[0].end != rows.size()));
+        (leftovers2.size() == 1 && (leftovers2[0].begin != 0 || static_cast<size_t>(leftovers2[0].end) != rows.size()));
     if (pass2a_was_useful) {
       for (auto &leftover2 : leftovers2) {
         StrongEvidenceClassify(debug_level, &rows, leftover2.begin, leftover2.end, &theory);

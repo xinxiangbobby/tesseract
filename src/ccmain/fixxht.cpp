@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 
 namespace tesseract {
@@ -102,8 +103,8 @@ int Tesseract::CountMisfitTops(WERD_RES *word_res) {
 // Returns a new x-height maximally compatible with the result in word_res.
 // See comment above for overall algorithm.
 float Tesseract::ComputeCompatibleXheight(WERD_RES *word_res, float *baseline_shift) {
-  STATS top_stats(0, UINT8_MAX);
-  STATS shift_stats(-UINT8_MAX, UINT8_MAX);
+  STATS top_stats(0, UINT8_MAX - 1);
+  STATS shift_stats(-UINT8_MAX, UINT8_MAX - 1);
   int bottom_shift = 0;
   int num_blobs = word_res->rebuild_word->NumBlobs();
   do {
@@ -205,7 +206,7 @@ float Tesseract::ComputeCompatibleXheight(WERD_RES *word_res, float *baseline_sh
             new_xht / word_res->denorm.y_scale());
   }
   // The xheight must change by at least x_ht_min_change to be used.
-  if (fabs(new_xht - kBlnXHeight) >= x_ht_min_change) {
+  if (std::fabs(new_xht - kBlnXHeight) >= x_ht_min_change) {
     return new_xht / word_res->denorm.y_scale();
   } else {
     return bottom_shift != 0 ? word_res->x_height : 0.0f;

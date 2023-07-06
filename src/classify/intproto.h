@@ -66,7 +66,7 @@ class FCOORD;
 
 /* The first 3 dimensions of the CLASS_PRUNER_STRUCT are the
  * 3 axes of the quantized feature space.
- * The position of the the bits recorded for each class in the
+ * The position of the bits recorded for each class in the
  * 4th dimension is determined by using CPrunerWordIndexFor(c),
  * where c is the corresponding class id. */
 struct CLASS_PRUNER_STRUCT {
@@ -106,8 +106,8 @@ struct INT_CLASS_STRUCT {
 struct TESS_API INT_TEMPLATES_STRUCT {
   INT_TEMPLATES_STRUCT();
   ~INT_TEMPLATES_STRUCT();
-  int NumClasses;
-  int NumClassPruners;
+  unsigned NumClasses;
+  unsigned NumClassPruners;
   INT_CLASS_STRUCT *Class[MAX_NUM_CLASSES];
   CLASS_PRUNER_STRUCT *ClassPruners[MAX_NUM_CLASS_PRUNERS];
 };

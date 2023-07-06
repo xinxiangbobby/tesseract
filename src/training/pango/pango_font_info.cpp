@@ -21,7 +21,7 @@
 #  include "config_auto.h"
 #endif
 
-#if (defined __MINGW32__) || (defined __CYGWIN__)
+#if (defined __CYGWIN__)
 // workaround for stdlib.h and putenv
 #  undef __STRICT_ANSI__
 #endif
@@ -591,7 +591,7 @@ int FontUtils::FontScore(const std::unordered_map<char32, int64_t> &ch_map,
   }
   *raw_score = 0;
   int ok_chars = 0;
-  for (auto it : ch_map) {
+  for (auto &&it : ch_map) {
     bool covered =
         (coverage != nullptr) && (IsWhitespace(it.first) ||
                                   (pango_coverage_get(coverage, it.first) == PANGO_COVERAGE_EXACT));
@@ -725,7 +725,7 @@ void FontUtils::PangoFontTypeInfo() {
              CAIRO_FONT_TYPE_USER) {
     printf("Using CAIRO_FONT_TYPE_USER.\n");
   } else if (!font_map) {
-    printf("Can not create pango cairo font map!\n");
+    printf("Cannot create pango cairo font map!\n");
   }
 }
 

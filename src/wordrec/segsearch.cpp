@@ -164,8 +164,8 @@ void Wordrec::UpdateSegSearchNodes(float rating_cert_scale, int starting_col,
                                    LMPainPoints *pain_points, BestChoiceBundle *best_choice_bundle,
                                    BlamerBundle *blamer_bundle) {
   MATRIX *ratings = word_res->ratings;
-  ASSERT_HOST(ratings->dimension() == pending->size());
-  ASSERT_HOST(ratings->dimension() == best_choice_bundle->beam.size());
+  ASSERT_HOST(static_cast<unsigned>(ratings->dimension()) == pending->size());
+  ASSERT_HOST(static_cast<unsigned>(ratings->dimension()) == best_choice_bundle->beam.size());
   for (int col = starting_col; col < ratings->dimension(); ++col) {
     if (!(*pending)[col].WorkToDo()) {
       continue;
@@ -242,7 +242,7 @@ void Wordrec::ProcessSegSearchPainPoint(float pain_point_priority, const MATRIX_
   if (lst == nullptr) {
     ratings->put(pain_point.col, pain_point.row, classified);
   } else {
-    // We can not delete old BLOB_CHOICEs, since they might contain
+    // We cannot delete old BLOB_CHOICEs, since they might contain
     // ViterbiStateEntries that are parents of other "active" entries.
     // Thus if the matrix cell already contains classifications we add
     // the new ones to the beginning of the list.

@@ -28,7 +28,6 @@
 
 #include <cfloat> // for FLT_MAX
 #include <cmath>  // for M_PI
-#include <array>  // for std::array
 #include <vector> // for std::vector
 
 namespace tesseract {
@@ -1489,7 +1488,7 @@ CLUSTERER *MakeClusterer(int16_t SampleSize, const PARAM_DESC ParamDesc[]) {
  *
  * @return    Pointer to the new sample data structure
  */
-SAMPLE *MakeSample(CLUSTERER *Clusterer, const float *Feature, int32_t CharID) {
+SAMPLE *MakeSample(CLUSTERER *Clusterer, const float *Feature, uint32_t CharID) {
   int i;
 
   // see if the samples have already been clustered - if so trap an error
@@ -1674,13 +1673,13 @@ float Mean(PROTOTYPE *Proto, uint16_t Dimension) {
 float StandardDeviation(PROTOTYPE *Proto, uint16_t Dimension) {
   switch (Proto->Style) {
     case spherical:
-      return sqrt(Proto->Variance.Spherical);
+      return std::sqrt(Proto->Variance.Spherical);
     case elliptical:
-      return sqrt(Proto->Variance.Elliptical[Dimension]);
+      return std::sqrt(Proto->Variance.Elliptical[Dimension]);
     case mixed:
       switch (Proto->Distrib[Dimension]) {
         case normal:
-          return sqrt(Proto->Variance.Elliptical[Dimension]);
+          return std::sqrt(Proto->Variance.Elliptical[Dimension]);
         case uniform:
         case D_random:
           return Proto->Variance.Elliptical[Dimension];
@@ -1717,7 +1716,7 @@ static void CreateClusterTree(CLUSTERER *Clusterer) {
   context.candidates = new TEMPCLUSTER[Clusterer->NumberOfSamples];
   context.next = 0;
   context.heap = new ClusterHeap(Clusterer->NumberOfSamples);
-  KDWalk(context.tree, reinterpret_cast<void_proc>(MakePotentialClusters), &context);
+  KDWalk(context.tree, MakePotentialClusters, &context);
 
   // form potential clusters into actual clusters - always do "best" first
   while (context.heap->Pop(&HeapEntry)) {
@@ -2268,7 +2267,7 @@ static PROTOTYPE *MakeMixedProto(CLUSTERER *Clusterer, CLUSTER *Cluster, STATIST
     }
 
     FillBuckets(NormalBuckets, Cluster, i, &(Clusterer->ParamDesc[i]), Proto->Mean[i],
-                sqrt(Proto->Variance.Elliptical[i]));
+                std::sqrt(Proto->Variance.Elliptical[i]));
     if (DistributionOK(NormalBuckets)) {
       continue;
     }
@@ -2524,7 +2523,6 @@ static PROTOTYPE *NewMixedProto(int16_t N, CLUSTER *Cluster, STATISTICS *Statist
  */
 static PROTOTYPE *NewSimpleProto(int16_t N, CLUSTER *Cluster) {
   auto Proto = new PROTOTYPE;
-  ASSERT_HOST(N == sizeof(Cluster->Mean));
   Proto->Mean = Cluster->Mean;
   Proto->Distrib.clear();
   Proto->Significant = true;
@@ -2576,7 +2574,7 @@ static bool Independent(PARAM_DESC *ParamDesc, int16_t N, float *CoVariance, flo
       if ((*VARii == 0.0) || (*VARjj == 0.0)) {
         CorrelationCoeff = 0.0;
       } else {
-        CorrelationCoeff = sqrt(sqrt(*CoVariance * *CoVariance / (*VARii * *VARjj)));
+        CorrelationCoeff = sqrt(std::sqrt(*CoVariance * *CoVariance / (*VARii * *VARjj)));
       }
       if (CorrelationCoeff > Independence) {
         return false;
@@ -2776,8 +2774,8 @@ static double ComputeChiSquared(uint16_t DegreesOfFreedom, double Alpha)
    for the specified number of degrees of freedom.  Search the list for
    the desired chi-squared. */
   CHISTRUCT SearchKey(0.0, Alpha);
-  auto OldChiSquared = reinterpret_cast<CHISTRUCT *>(
-      search(ChiWith[DegreesOfFreedom], &SearchKey, AlphaMatch)->first_node());
+  auto *found = search(ChiWith[DegreesOfFreedom], &SearchKey, AlphaMatch);
+  auto OldChiSquared = reinterpret_cast<CHISTRUCT *>(found ? found->first_node() : nullptr);
 
   if (OldChiSquared == nullptr) {
     OldChiSquared = new CHISTRUCT(DegreesOfFreedom, Alpha);

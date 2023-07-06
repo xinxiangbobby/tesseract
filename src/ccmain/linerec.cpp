@@ -250,7 +250,8 @@ void Tesseract::LSTMRecognizeWord(const BLOCK &block, ROW *row, WERD_RES *word,
   }
 
   bool do_invert = tessedit_do_invert;
-  lstm_recognizer_->RecognizeLine(*im_data, do_invert, classify_debug_level > 0,
+  float threshold = do_invert ? double(invert_threshold) : 0.0f;
+  lstm_recognizer_->RecognizeLine(*im_data, threshold, classify_debug_level > 0,
                                   kWorstDictCertainty / kCertaintyScale, word_box, words,
                                   lstm_choice_mode, lstm_choice_iterations);
   delete im_data;
@@ -269,22 +270,14 @@ void Tesseract::SearchWords(PointerVector<WERD_RES> *words) {
   if (stopper_dict == nullptr) {
     stopper_dict = &getDict();
   }
-  bool any_nonspace_delimited = false;
-  for (int w = 0; w < words->size(); ++w) {
-    WERD_RES *word = (*words)[w];
-    if (word->best_choice != nullptr && word->best_choice->ContainsAnyNonSpaceDelimited()) {
-      any_nonspace_delimited = true;
-      break;
-    }
-  }
-  for (int w = 0; w < words->size(); ++w) {
+  for (unsigned w = 0; w < words->size(); ++w) {
     WERD_RES *word = (*words)[w];
     if (word->best_choice == nullptr) {
       // It is a dud.
       word->SetupFake(lstm_recognizer_->GetUnicharset());
     } else {
       // Set the best state.
-      for (int i = 0; i < word->best_choice->length(); ++i) {
+      for (unsigned i = 0; i < word->best_choice->length(); ++i) {
         int length = word->best_choice->state(i);
         word->best_state.push_back(length);
       }

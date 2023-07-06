@@ -162,14 +162,13 @@ void find_underlined_blobs(    // get chop points
     float baseline_offset,     // amount to shrinke it
     ICOORDELT_LIST *chop_cells // places to chop
 ) {
-  int16_t x, y;     // sides of blob
   ICOORD blob_chop; // sides of blob
   TBOX blob_box = u_line->bounding_box();
   // cell iterator
   ICOORDELT_IT cell_it = chop_cells;
-  STATS upper_proj(blob_box.left(), blob_box.right() + 1);
-  STATS middle_proj(blob_box.left(), blob_box.right() + 1);
-  STATS lower_proj(blob_box.left(), blob_box.right() + 1);
+  STATS upper_proj(blob_box.left(), blob_box.right());
+  STATS middle_proj(blob_box.left(), blob_box.right());
+  STATS lower_proj(blob_box.left(), blob_box.right());
   C_OUTLINE_IT out_it; // outlines of blob
 
   ASSERT_HOST(u_line->cblob() != nullptr);
@@ -180,9 +179,10 @@ void find_underlined_blobs(    // get chop points
                                    &middle_proj, &upper_proj);
   }
 
-  for (x = blob_box.left(); x < blob_box.right(); x++) {
+  for (auto x = blob_box.left(); x < blob_box.right(); x++) {
     if (middle_proj.pile_count(x) > 0) {
-      for (y = x + 1; y < blob_box.right() && middle_proj.pile_count(y) > 0; y++) {
+      auto y = x + 1;
+      for (; y < blob_box.right() && middle_proj.pile_count(y) > 0; y++) {
         ;
       }
       blob_chop = ICOORD(x, y);

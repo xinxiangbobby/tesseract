@@ -17,6 +17,7 @@
 
 #include "networkio.h"
 #include <cfloat> // for FLT_MAX
+#include <cmath>
 
 #include <allheaders.h>
 #include "functions.h"
@@ -28,7 +29,7 @@ namespace tesseract {
 // Minimum value to output for certainty.
 const float kMinCertainty = -20.0f;
 // Probability corresponding to kMinCertainty.
-const float kMinProb = exp(kMinCertainty);
+const float kMinProb = std::exp(kMinCertainty);
 
 // Resizes to a specific size as a 2-d temp buffer. No batches, no y-dim.
 void NetworkIO::Resize2d(bool int_mode, int width, int num_features) {
@@ -126,7 +127,7 @@ void NetworkIO::ZeroInvalidElements() {
 static void ComputeBlackWhite(Image pix, float *black, float *white) {
   int width = pixGetWidth(pix);
   int height = pixGetHeight(pix);
-  STATS mins(0, 256), maxes(0, 256);
+  STATS mins(0, 255), maxes(0, 255);
   if (width >= 3) {
     int y = height / 2;
     l_uint32 *line = pixGetData(pix) + pixGetWpl(pix) * y;
@@ -172,7 +173,7 @@ void NetworkIO::FromPixes(const StaticShape &shape, const std::vector<Image> &pi
   int target_height = shape.height();
   int target_width = shape.width();
   std::vector<std::pair<int, int>> h_w_pairs;
-  for (auto pix : pixes) {
+  for (auto &&pix : pixes) {
     Image var_pix = pix;
     int width = pixGetWidth(var_pix);
     if (target_width != 0) {
@@ -356,7 +357,7 @@ Image NetworkIO::ToPix() const {
         } else if (num_features > 3) {
           // More than 3 features use false yellow/blue color, assuming a signed
           // input in the range [-1,1].
-          red = ClipToRange<int>(IntCastRounded(fabs(pixel) * 255), 0, 255);
+          red = ClipToRange<int>(IntCastRounded(std::fabs(pixel) * 255), 0, 255);
           if (pixel >= 0) {
             green = red;
             blue = 0;
@@ -408,15 +409,6 @@ void NetworkIO::CopyTimeStepGeneral(int dest_t, int dest_offset, int num_feature
     memcpy(i_[dest_t] + dest_offset, src.i_[src_t] + src_offset, num_features * sizeof(i_[0][0]));
   } else {
     memcpy(f_[dest_t] + dest_offset, src.f_[src_t] + src_offset, num_features * sizeof(f_[0][0]));
-  }
-}
-
-// Zeroes a single time step.
-void NetworkIO::ZeroTimeStepGeneral(int t, int offset, int num_features) {
-  if (int_mode_) {
-    ZeroVector(num_features, i_[t] + offset);
-  } else {
-    ZeroVector(num_features, f_[t] + offset);
   }
 }
 
@@ -586,7 +578,7 @@ void NetworkIO::EnsureBestLabel(int t, int label) {
 // Helper function converts prob to certainty taking the minimum into account.
 /* static */
 float NetworkIO::ProbToCertainty(float prob) {
-  return prob > kMinProb ? log(prob) : kMinCertainty;
+  return prob > kMinProb ? std::log(prob) : kMinCertainty;
 }
 
 // Returns true if there is any bad value that is suspiciously like a GT
@@ -807,7 +799,7 @@ void NetworkIO::ComputeCombinerDeltas(const NetworkIO &fwd_deltas, const Network
       // Reconstruct the target from the delta.
       float comb_target = delta_line[i] + output;
       comb_line[i] = comb_target - comb_line[i];
-      float base_delta = fabs(comb_target - base_line[i]);
+      float base_delta = std::fabs(comb_target - base_line[i]);
       if (base_delta > max_base_delta) {
         max_base_delta = base_delta;
       }

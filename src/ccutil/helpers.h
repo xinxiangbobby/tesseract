@@ -21,6 +21,7 @@
 #define TESSERACT_CCUTIL_HELPERS_H_
 
 #include <cassert>
+#include <climits> // for INT_MIN, INT_MAX
 #include <cmath> // std::isfinite
 #include <cstdio>
 #include <cstring>
@@ -29,6 +30,8 @@
 #include <random>
 #include <string>
 #include <vector>
+
+#include "serialis.h"
 
 namespace tesseract {
 
@@ -89,13 +92,6 @@ inline void chomp_string(char *str) {
   int last_index = static_cast<int>(strlen(str)) - 1;
   while (last_index >= 0 && (str[last_index] == '\n' || str[last_index] == '\r')) {
     str[last_index--] = '\0';
-  }
-}
-
-// Advance the current pointer of the file if it points to a newline character.
-inline void SkipNewline(FILE *file) {
-  if (fgetc(file) != '\n') {
-    fseek(file, -1, SEEK_CUR);
   }
 }
 
@@ -173,6 +169,8 @@ inline int DivRounded(int a, int b) {
 // Return a double cast to int with rounding.
 inline int IntCastRounded(double x) {
   assert(std::isfinite(x));
+  assert(x < INT_MAX);
+  assert(x > INT_MIN);
   return x >= 0.0 ? static_cast<int>(x + 0.5) : -static_cast<int>(-x + 0.5);
 }
 
@@ -194,19 +192,9 @@ inline void ReverseN(void *ptr, int num_bytes) {
   }
 }
 
-// Reverse the order of bytes in a 16 bit quantity for big/little-endian switch.
-inline void Reverse16(void *ptr) {
-  ReverseN(ptr, 2);
-}
-
 // Reverse the order of bytes in a 32 bit quantity for big/little-endian switch.
 inline void Reverse32(void *ptr) {
   ReverseN(ptr, 4);
-}
-
-// Reverse the order of bytes in a 64 bit quantity for big/little-endian switch.
-inline void Reverse64(void *ptr) {
-  ReverseN(ptr, 8);
 }
 
 // Reads a vector of simple types from the given file. Assumes that bitwise
@@ -249,11 +237,24 @@ bool Serialize(FILE *fp, const std::vector<T> &data) {
   uint32_t size = data.size();
   if (fwrite(&size, sizeof(size), 1, fp) != 1) {
     return false;
-  } else if constexpr (std::is_class_v<T>) {
+  } else if constexpr (std::is_class<T>::value) {
     // Serialize a tesseract class.
     for (auto &item : data) {
       if (!item.Serialize(fp)) {
         return false;
+      }
+    }
+  } else if constexpr (std::is_pointer<T>::value) {
+    // Serialize pointers.
+    for (auto &item : data) {
+      uint8_t non_null = (item != nullptr);
+      if (!Serialize(fp, &non_null)) {
+        return false;
+      }
+      if (non_null) {
+        if (!item->Serialize(fp)) {
+          return false;
+        }
       }
     }
   } else if (size > 0) {

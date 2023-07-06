@@ -149,7 +149,7 @@ void ResultIterator::CalculateBlobOrder(std::vector<int> *blob_indices) const {
   for (int i = 0; i < word_length_; i++) {
     letter_types.push_back(it_->word()->SymbolDirection(i));
   }
-  // Convert a single separtor sandwiched between two EN's into an EN.
+  // Convert a single separator sandwiched between two ENs into an EN.
   for (int i = 0; i + 2 < word_length_; i++) {
     if (letter_types[i] == U_EURO_NUM && letter_types[i + 2] == U_EURO_NUM &&
         (letter_types[i + 1] == U_EURO_NUM_SEP || letter_types[i + 1] == U_COMMON_NUM_SEP)) {
@@ -228,7 +228,7 @@ void ResultIterator::CalculateBlobOrder(std::vector<int> *blob_indices) const {
       i = j;
     }
   }
-  ASSERT_HOST(blob_indices->size() == word_length_);
+  ASSERT_HOST(blob_indices->size() == static_cast<size_t>(word_length_));
 }
 
 static void PrintScriptDirs(const std::vector<StrongScriptDirection> &dirs) {
@@ -501,7 +501,7 @@ bool ResultIterator::Next(PageIteratorLevel level) {
     case RIL_SYMBOL: {
       std::vector<int> blob_order;
       CalculateBlobOrder(&blob_order);
-      int next_blob = 0;
+      unsigned next_blob = 0;
       while (next_blob < blob_order.size() && blob_index_ != blob_order[next_blob]) {
         next_blob++;
       }
@@ -616,7 +616,7 @@ bool ResultIterator::IsAtFinalElement(PageIteratorLevel level, PageIteratorLevel
     return true; // Already at the end!
   }
   // The result is true if we step forward by element and find we are
-  // at the the end of the page or at beginning of *all* levels in:
+  // at the end of the page or at beginning of *all* levels in:
   // [level, element).
   // When there is more than one level difference between element and level,
   // we could for instance move forward one symbol and still be at the first
@@ -731,10 +731,12 @@ void ResultIterator::IterateAndAppendUTF8TextlineText(std::string *text) {
     std::vector<int> textline_order;
     std::vector<StrongScriptDirection> dirs;
     CalculateTextlineOrder(current_paragraph_is_ltr_, *this, &dirs, &textline_order);
-    tprintf("Strong Script dirs     [%p/P=%s]: ", it_->row(),
+    tprintf("Strong Script dirs     [%p/P=%s]: ",
+            static_cast<void *>(it_->row()),
             current_paragraph_is_ltr_ ? "ltr" : "rtl");
     PrintScriptDirs(dirs);
-    tprintf("Logical textline order [%p/P=%s]: ", it_->row(),
+    tprintf("Logical textline order [%p/P=%s]: ",
+            static_cast<void *>(it_->row()),
             current_paragraph_is_ltr_ ? "ltr" : "rtl");
     for (int i : textline_order) {
       tprintf("%d ", i);

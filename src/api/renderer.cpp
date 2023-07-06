@@ -109,6 +109,9 @@ bool TessResultRenderer::EndDocument() {
 }
 
 void TessResultRenderer::AppendString(const char *s) {
+  if (s == nullptr) {
+    return;
+  }
   AppendData(s, strlen(s));
 }
 
@@ -139,12 +142,12 @@ bool TessTextRenderer::AddImageHandler(TessBaseAPI *api) {
     return false;
   }
 
-  AppendString(utf8.get());
-
   const char *pageSeparator = api->GetStringVariable("page_separator");
-  if (pageSeparator != nullptr && *pageSeparator != '\0') {
+  if (pageSeparator != nullptr && *pageSeparator != '\0' && imagenum() > 0) {
     AppendString(pageSeparator);
   }
+
+  AppendString(utf8.get());
 
   return true;
 }

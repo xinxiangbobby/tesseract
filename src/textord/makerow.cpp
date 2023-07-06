@@ -38,6 +38,7 @@
 #include "underlin.h"
 
 #include <algorithm>
+#include <cmath>
 #include <vector> // for std::vector
 
 namespace tesseract {
@@ -357,7 +358,7 @@ void compute_page_skew(    // get average gradient
     for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
       row = row_it.data();
       blob_count = row->blob_list()->length();
-      row_err = static_cast<int32_t>(ceil(row->line_error()));
+      row_err = static_cast<int32_t>(std::ceil(row->line_error()));
       if (row_err <= 0) {
         row_err = 1;
       }
@@ -517,7 +518,7 @@ void vigorous_noise_removal(TO_BLOCK *block) {
         max_height = blob->bounding_box().height();
       }
     }
-    STATS hstats(0, max_height + 1);
+    STATS hstats(0, max_height);
     for (b_it.mark_cycle_pt(); !b_it.cycled_list(); b_it.forward()) {
       BLOBNBOX *blob = b_it.data();
       int height = blob->bounding_box().height();
@@ -545,7 +546,7 @@ void vigorous_noise_removal(TO_BLOCK *block) {
           }
         }
         // It might be noise so get rid of it.
-        delete blob->cblob();
+        delete blob->remove_cblob();
         delete b_it.extract();
       } else {
         prev = blob;
@@ -636,7 +637,7 @@ void delete_non_dropout_rows( // find lines
   min_y = block_box.bottom() - 1;
   max_y = block_box.top() + 1;
   for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
-    line_index = static_cast<int32_t>(floor(row_it.data()->intercept()));
+    line_index = static_cast<int32_t>(std::floor(row_it.data()->intercept()));
     if (line_index <= min_y) {
       min_y = line_index - 1;
     }
@@ -668,7 +669,7 @@ void delete_non_dropout_rows( // find lines
   compute_dropout_distances(&occupation[0], &deltas[0], line_count);
   for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
     row = row_it.data();
-    line_index = static_cast<int32_t>(floor(row->intercept()));
+    line_index = static_cast<int32_t>(std::floor(row->intercept()));
     distance = deltas[line_index - min_y];
     if (find_best_dropout_row(row, distance, block->line_spacing / 2, line_index, &row_it,
                               testing_on)) {
@@ -726,7 +727,7 @@ bool find_best_dropout_row( // find neighbours
     row_offset = row_inc;
     do {
       next_row = row_it->data_relative(row_offset);
-      next_index = static_cast<int32_t>(floor(next_row->intercept()));
+      next_index = static_cast<int32_t>(std::floor(next_row->intercept()));
       if ((distance < 0 && next_index < line_index &&
            next_index > line_index + distance + distance) ||
           (distance >= 0 && next_index > line_index &&
@@ -774,7 +775,7 @@ TBOX deskew_block_coords( // block box
   BLOBNBOX *blob;      // current blob
   BLOBNBOX_IT blob_it; // iterator
 
-  length = sqrt(gradient * gradient + 1);
+  length = std::sqrt(gradient * gradient + 1);
   rotation = FCOORD(1 / length, -gradient / length);
   for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
     row = row_it.data();
@@ -815,7 +816,7 @@ void compute_line_occupation( // project blobs
   FCOORD rotation;     // inverse of skew
 
   line_count = max_y - min_y + 1;
-  length = sqrt(gradient * gradient + 1);
+  length = std::sqrt(gradient * gradient + 1);
   rotation = FCOORD(1 / length, -gradient / length);
   for (line_index = 0; line_index < line_count; line_index++) {
     deltas[line_index] = 0;
@@ -1180,6 +1181,11 @@ void compute_row_stats( // find lines
     if (prev_row != nullptr) {
       rows[rowcount++] = prev_row;
       prev_row->spacing = row->intercept() - prev_row->intercept();
+      if (prev_row->spacing < 0.1 && prev_row->spacing > -0.1) {
+        // Avoid small spacing values which give a small disp_quant_factor_.
+        // That can cause large memory allocations with out-of-memory.
+        prev_row->spacing = 0;
+      }
       if (testing_on) {
         tprintf("Row at %g yields spacing of %g\n", row->intercept(), prev_row->spacing);
       }
@@ -1188,7 +1194,7 @@ void compute_row_stats( // find lines
     row_it.backward();
   } while (!row_it.at_last());
   block->key_row = prev_row;
-  block->baseline_offset = fmod(prev_row->parallel_c(), block->line_spacing);
+  block->baseline_offset = std::fmod(prev_row->parallel_c(), block->line_spacing);
   if (testing_on) {
     tprintf("Blob based spacing=(%g,%g), offset=%g", block->line_size, block->line_spacing,
             block->baseline_offset);
@@ -1232,7 +1238,7 @@ void compute_row_stats( // find lines
       block->line_spacing = rows[row_index]->spacing;
       block->max_blob_size = block->line_spacing * textord_excess_blobsize;
     }
-    block->baseline_offset = fmod(rows[row_index]->intercept(), block->line_spacing);
+    block->baseline_offset = std::fmod(rows[row_index]->intercept(), block->line_spacing);
   }
   if (testing_on) {
     tprintf("\nEstimate line size=%g, spacing=%g, offset=%g\n", block->line_size,
@@ -1282,20 +1288,20 @@ void Textord::compute_block_xheight(TO_BLOCK *block, float gradient) {
   // Compute the best guess of xheight of each row individually.
   // Use xheight and ascrise values of the rows where ascenders were found.
   get_min_max_xheight(block->line_size, &min_height, &max_height);
-  STATS row_asc_xheights(min_height, max_height + 1);
+  STATS row_asc_xheights(min_height, max_height);
   STATS row_asc_ascrise(static_cast<int>(min_height * asc_frac_xheight),
-                        static_cast<int>(max_height * asc_frac_xheight) + 1);
+                        static_cast<int>(max_height * asc_frac_xheight));
   int min_desc_height = static_cast<int>(min_height * desc_frac_xheight);
   int max_desc_height = static_cast<int>(max_height * desc_frac_xheight);
-  STATS row_asc_descdrop(min_desc_height, max_desc_height + 1);
-  STATS row_desc_xheights(min_height, max_height + 1);
-  STATS row_desc_descdrop(min_desc_height, max_desc_height + 1);
-  STATS row_cap_xheights(min_height, max_height + 1);
-  STATS row_cap_floating_xheights(min_height, max_height + 1);
+  STATS row_asc_descdrop(min_desc_height, max_desc_height);
+  STATS row_desc_xheights(min_height, max_height);
+  STATS row_desc_descdrop(min_desc_height, max_desc_height);
+  STATS row_cap_xheights(min_height, max_height);
+  STATS row_cap_floating_xheights(min_height, max_height);
   for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
     row = row_it.data();
     // Compute the xheight of this row if it has not been computed before.
-    if (row->xheight <= 0.0) {
+    if (row->xheight <= 0) {
       compute_row_xheight(row, block->block->classify_rotation(), gradient, block->line_size);
     }
     ROW_CATEGORY row_category = get_row_category(row);
@@ -1330,7 +1336,7 @@ void Textord::compute_block_xheight(TO_BLOCK *block, float gradient) {
     // Try to search for two modes in row_cap_heights that could
     // be the xheight and the capheight (e.g. some of the rows
     // were lowercase, but did not have enough (a/de)scenders.
-    // If such two modes can not be found, this block is most
+    // If such two modes cannot be found, this block is most
     // likely all caps (or all small caps, in which case the code
     // still works as intended).
     compute_xheight_from_modes(
@@ -1349,10 +1355,10 @@ void Textord::compute_block_xheight(TO_BLOCK *block, float gradient) {
     xheight = static_cast<float>(textord_min_xheight);
     corrected_xheight = true;
   }
-  if (corrected_xheight || ascrise <= 0.0) {
+  if (corrected_xheight || ascrise <= 0) {
     ascrise = xheight * asc_frac_xheight;
   }
-  if (corrected_xheight || descdrop >= 0.0) {
+  if (corrected_xheight || descdrop >= 0) {
     descdrop = -(xheight * desc_frac_xheight);
   }
   block->xheight = xheight;
@@ -1388,8 +1394,8 @@ void Textord::compute_row_xheight(TO_ROW *row, // row to do
 
   int min_height, max_height;
   get_min_max_xheight(block_line_size, &min_height, &max_height);
-  STATS heights(min_height, max_height + 1);
-  STATS floating_heights(min_height, max_height + 1);
+  STATS heights(min_height, max_height);
+  STATS floating_heights(min_height, max_height);
   fill_heights(row, gradient, min_height, max_height, &heights, &floating_heights);
   row->ascrise = 0.0f;
   row->xheight = 0.0f;
@@ -1397,7 +1403,7 @@ void Textord::compute_row_xheight(TO_ROW *row, // row to do
       &heights, &floating_heights, textord_single_height_mode && rotation.y() == 0.0, min_height,
       max_height, &(row->xheight), &(row->ascrise));
   row->descdrop = 0.0f;
-  if (row->xheight > 0.0) {
+  if (row->xheight > 0) {
     row->descdrop =
         static_cast<float>(compute_row_descdrop(row, gradient, row->xheight_evidence, &heights));
   }
@@ -1588,7 +1594,7 @@ int32_t compute_row_descdrop(TO_ROW *row, float gradient, int xheight_blob_count
   float height;  // height of blob
   BLOBNBOX_IT blob_it = row->blob_list();
   BLOBNBOX *blob; // current blob
-  STATS heights(min_height, max_height + 1);
+  STATS heights(min_height, max_height);
   for (blob_it.mark_cycle_pt(); !blob_it.cycled_list(); blob_it.forward()) {
     blob = blob_it.data();
     if (!blob->joined_to_prev()) {
@@ -1699,7 +1705,7 @@ void correct_row_xheight(TO_ROW *row, float xheight, float ascrise, float descdr
   // -- the row does not have ascenders or descenders, but its xheight
   //    is close to the average block xheight (e.g. row with "www.mmm.com")
   if (row_category == ROW_ASCENDERS_FOUND) {
-    if (row->descdrop >= 0.0) {
+    if (row->descdrop >= 0) {
       row->descdrop = row->xheight * (descdrop / xheight);
     }
   } else if (row_category == ROW_INVALID ||
@@ -1791,7 +1797,7 @@ void separate_underlines(TO_BLOCK *block,   // block to do
   int min_blob_height = static_cast<int>(textord_min_blob_height_fraction * block->line_size + 0.5);
 
   // length of vector
-  length = sqrt(1 + gradient * gradient);
+  length = std::sqrt(1 + gradient * gradient);
   g_vec = FCOORD(1 / length, -gradient / length);
   blob_rotation = FCOORD(rotation.x(), -rotation.y());
   blob_rotation.rotate(g_vec); // undoing everything
@@ -1994,6 +2000,9 @@ void Textord::make_spline_rows(TO_BLOCK *block, // block to do
                                bool testing_on) {
 #ifndef GRAPHICS_DISABLED
   ScrollView::Color colour; // of row
+  if (testing_on && to_win == nullptr) {
+    create_to_win(page_tr_);
+  }
 #endif
   TO_ROW_IT row_it = block->get_rows();
 
@@ -2290,7 +2299,7 @@ void assign_blobs_to_rows( // find lines
       (block->block->pdblk.bounding_box().bottom() + block->block->pdblk.bounding_box().top()) /
       2.0f;
   if (gradient != nullptr) {
-    g_length = sqrt(1 + *gradient * *gradient);
+    g_length = std::sqrt(1 + *gradient * *gradient);
   }
 #ifndef GRAPHICS_DISABLED
   if (drawing_skew) {
@@ -2330,7 +2339,6 @@ void assign_blobs_to_rows( // find lines
     if (!row_it.empty()) {
       for (row_it.move_to_first(); !row_it.at_last() && row_it.data()->min_y() > top;
            row_it.forward()) {
-        ;
       }
       row = row_it.data();
       if (row->min_y() <= top && row->max_y() >= bottom) {

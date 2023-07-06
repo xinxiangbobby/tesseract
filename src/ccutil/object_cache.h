@@ -43,7 +43,8 @@ public:
         tprintf(
             "ObjectCache(%p)::~ObjectCache(): WARNING! LEAK! object %p "
             "still has count %d (id %s)\n",
-            this, it.object, it.count, it.id.c_str());
+            static_cast<void *>(this), static_cast<void *>(it.object),
+            it.count, it.id.c_str());
       } else {
         delete it.object;
         it.object = nullptr;
@@ -95,12 +96,16 @@ public:
 
   void DeleteUnusedObjects() {
     std::lock_guard<std::mutex> guard(mu_);
-    for (auto it = cache_.rbegin(); it != cache_.rend(); ++it) {
-      if (it->count <= 0) {
-        delete it->object;
-        cache_.erase(std::next(it).base());
-      }
-    }
+    cache_.erase(std::remove_if(cache_.begin(), cache_.end(),
+                                [](const ReferenceCount &it) {
+                                  if (it.count <= 0) {
+                                    delete it.object;
+                                    return true;
+                                  } else {
+                                    return false;
+                                  }
+                                }),
+                 cache_.end());
   }
 
 private:
